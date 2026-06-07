@@ -10,20 +10,24 @@ import math
 
 # ========== КОНСТАНТЫ ==========
 # Параметры COCOMO для простого проекта
-A_COCOMO = 2.4  # коэффициент A
-B_COCOMO = 1.05  # коэффициент B (масштабирования)
+A_COCOMO = 2.4          # коэффициент A
+B_COCOMO = 1.05         # коэффициент B
 
 # Параметры длительности (TDEV)
-TDEV_BASE = 3.0  # базовый коэффициент
-TDEV_EXP_BASE = 0.33  # базовая степень
-TDEV_EXP_FACTOR = 0.2  # фактор степени
-B_SCALE = 1.05  # коэффициент масштабирования
+TDEV_BASE = 3.0
+TDEV_EXP_BASE = 0.33
+TDEV_EXP_FACTOR = 0.2
+B_SCALE = 1.05
+
+# AVC для языков 4-го поколения (по лекции)
+AVC_MIN = 2
+AVC_MAX = 40
+AVC_DEFAULT = 20
 
 # Экономические параметры
-MONTH_HOURS = 160  # часов в рабочем месяце
-TAX_RATE = 0.302  # налоги 30,2%
-OVERHEAD_RATE = 0.5  # накладные расходы 50%
-VAT_RATE = 0.22  # НДС 22%
+TAX_RATE = 0.302
+OVERHEAD_RATE = 0.5
+VAT_RATE = 0.22
 
 # Рыночные ставки специалистов (руб./мес)
 SALARY_PROJECT_MANAGER = 220_000
@@ -40,12 +44,11 @@ PM_QA = 0.29
 PM_TECH_WRITER = 0.15
 
 # Прочие затраты
-COST_HARDWARE_SOFTWARE = 25_240  # аппаратные средства и ПО (с НДС)
-COST_TRAINING = 142_800  # обучение (с НДС)
+COST_HARDWARE_SOFTWARE = 25_240
+COST_TRAINING = 142_800
 
 
-# ========== ФУНКЦИИ РАСЧЕТА ==========
-
+# ========== ФУНКЦИИ ==========
 
 def input_factor(name: str, default: float, description: str) -> float:
     """Ввод множителя с значением по умолчанию"""
@@ -55,15 +58,13 @@ def input_factor(name: str, default: float, description: str) -> float:
             return default
         return float(val)
     except ValueError:
-        print(f"Некорректный ввод, использую значение по умделчанию: {default}")
+        print(f"Некорректный ввод, использую значение по умолчанию: {default}")
         return default
 
 
 def calculate_m() -> float:
     """Ввод 7 множителей M и их перемножение"""
-    print(
-        "\nВвод множителей M (COCOMO II). Для использования значения по умолчанию нажмите Enter"
-    )
+    print("\nВвод множителей M (COCOMO II). Для использования значения по умолчанию нажмите Enter")
     print("-" * 60)
 
     pers = input_factor("PERS", 1.00, "способности персонала")
@@ -76,21 +77,26 @@ def calculate_m() -> float:
 
     m = pers * rcpx * ruse * pdif * prex * fcil * sced
 
-    print(
-        f"\nM = {pers} × {rcpx} × {ruse} × {pdif} × {prex} × {fcil} × {sced} = {m:.2f}"
-    )
+    print(f"\nM = {pers} × {rcpx} × {ruse} × {pdif} × {prex} × {fcil} × {sced} = {m:.2f}")
     return m
+
+
+def calculate_kdsi_from_nop(nop: float, avc: float) -> float:
+    """Перевод объектных точек в KDSI"""
+    dsi = nop * avc
+    kdsi = dsi / 1000
+    return kdsi
 
 
 def calculate_pm(kdsi: float, m: float) -> float:
     """Расчет трудоемкости по модели COCOMO с множителем M"""
-    return A_COCOMO * (kdsi**B_COCOMO) * m
+    return A_COCOMO * (kdsi ** B_COCOMO) * m
 
 
 def calculate_tdev(pm: float) -> float:
     """Расчет длительности проекта по модели COCOMO"""
     exponent = TDEV_EXP_BASE + TDEV_EXP_FACTOR * (B_SCALE - 1.01)
-    return TDEV_BASE * (pm**exponent)
+    return TDEV_BASE * (pm ** exponent)
 
 
 def rayleigh_distribution(t: float, sigma: float) -> float:
@@ -110,7 +116,6 @@ def calculate_monthly_distribution(pm: float, sigma: float, months: int) -> list
         distribution.append(f_t)
         total_f += f_t
 
-    # Нормировка к PM
     monthly_pm = [(f / total_f) * pm for f in distribution]
     return monthly_pm
 
@@ -138,179 +143,155 @@ def calculate_total_personnel_cost() -> tuple:
 
 def calculate_total_cost() -> dict:
     """Расчет общей стоимости проекта"""
+    total_personnel, pm_cost, arch_cost, dev_cost, qa_cost, writer_cost = calculate_total_personnel_cost()
 
-    # 1. Затраты на персонал
-    total_personnel, pm_cost, arch_cost, dev_cost, qa_cost, writer_cost = (
-        calculate_total_personnel_cost()
-    )
-
-    # 2. Аппаратные средства и ПО (уже с НДС)
-    cost_hw_sw = COST_HARDWARE_SOFTWARE
-
-    # 3. Обучение (уже с НДС)
-    cost_training = COST_TRAINING
-
-    # Итого без НДС для всех статей
-    total_without_vat = total_personnel + cost_hw_sw + cost_training
+    total_without_vat = total_personnel + COST_HARDWARE_SOFTWARE + COST_TRAINING
     vat = total_without_vat * VAT_RATE
     total_with_vat = total_without_vat + vat
 
     return {
-        "personnel": {
-            "total": total_personnel,
-            "project_manager": pm_cost,
-            "architect": arch_cost,
-            "developer": dev_cost,
-            "qa": qa_cost,
-            "tech_writer": writer_cost,
+        'personnel': {
+            'total': total_personnel,
+            'project_manager': pm_cost,
+            'architect': arch_cost,
+            'developer': dev_cost,
+            'qa': qa_cost,
+            'tech_writer': writer_cost
         },
-        "hardware_software": cost_hw_sw,
-        "training": cost_training,
-        "total_without_vat": total_without_vat,
-        "vat": vat,
-        "total_with_vat": total_with_vat,
+        'hardware_software': COST_HARDWARE_SOFTWARE,
+        'training': COST_TRAINING,
+        'total_without_vat': total_without_vat,
+        'vat': vat,
+        'total_with_vat': total_with_vat
     }
 
 
 def main():
-    print("=" * 60)
+    print("=" * 70)
     print("АВТОМАТИЗИРОВАННЫЙ РАСЧЕТ ПО МОДЕЛЯМ COCOMO И РЭЛЕЯ")
-    print("=" * 60)
+    print("=" * 70)
 
-    # ========== ВВОД ДАННЫХ ==========
-    print("\n1. ВВОД ИСХОДНЫХ ДАННЫХ")
-    print("-" * 40)
+    # ========== 1. ВВОД ОБЪЕКТНЫХ ТОЧЕК ==========
+    print("\n1. ВВОД ОБЪЕКТНЫХ ТОЧЕК (NOP)")
+    print("-" * 50)
 
-    kdsi = float(input("Введите KDSI (тысячи строк кода): "))
+    nop = float(input("Введите количество объектных точек NOP: "))
+
+    print(f"\nAVC (среднее количество строк на объектную точку) для языков 4-го поколения")
+    print(f"диапазон: от {AVC_MIN} до {AVC_MAX}. По умолчанию: {AVC_DEFAULT}")
+
+    avc_input = input(f"Введите AVC [{AVC_DEFAULT}]: ").strip()
+    avc = float(avc_input) if avc_input else AVC_DEFAULT
+
+    # ========== 2. РАСЧЁТ KDSI ==========
+    kdsi = calculate_kdsi_from_nop(nop, avc)
+
+    print(f"\n2. РАСЧЁТ РАЗМЕРА КОДА")
+    print("-" * 50)
+    print(f"NOP = {nop}")
+    print(f"AVC = {avc}")
+    print(f"DSI = NOP × AVC = {nop} × {avc} = {nop * avc:.0f} строк")
+    print(f"KDSI = DSI / 1000 = {kdsi:.2f}")
+
+    # ========== 3. ВВОД ПАРАМЕТРОВ РЭЛЕЯ ==========
+    print("\n3. ВВОД ПАРАМЕТРОВ РАСПРЕДЕЛЕНИЯ РЭЛЕЯ")
+    print("-" * 50)
+
     sigma = float(input("Введите параметр масштаба σ (для Рэлея): "))
     months = int(input("Введите количество месяцев для распределения: "))
 
-    # ========== ВВОД МНОЖИТЕЛЕЙ M ==========
+    # ========== 4. ВВОД МНОЖИТЕЛЕЙ M ==========
     m = calculate_m()
 
-    print(
-        f"\nПринятые значения: KDSI = {kdsi}, σ = {sigma}, месяцев = {months}, M = {m:.2f}"
-    )
+    print(f"\nИсходные данные:")
+    print(f"  NOP = {nop}, AVC = {avc}, KDSI = {kdsi:.2f}")
+    print(f"  σ = {sigma}, месяцев = {months}, M = {m:.2f}")
 
-    # ========== РАСЧЕТ COCOMO ==========
-    print("\n2. РАСЧЕТ ПО МОДЕЛИ COCOMO")
-    print("-" * 40)
+    # ========== 5. РАСЧЁТ PM И TDEV ==========
+    print("\n4. РАСЧЕТ ПО МОДЕЛИ COCOMO")
+    print("-" * 50)
 
     pm = calculate_pm(kdsi, m)
     tdev = calculate_tdev(pm)
 
-    print(f"Формула: PM = {A_COCOMO} × {kdsi}^{B_COCOMO} × {m:.2f}")
+    print(f"Формула: PM = {A_COCOMO} × {kdsi:.2f}^{B_COCOMO} × {m:.2f}")
     print(f"Трудоемкость (PM): {pm:.2f} чел.-мес")
     print(f"Длительность (TDEV): {tdev:.2f} месяца")
 
-    # ========== РАСПРЕДЕЛЕНИЕ ПО РЭЛЕЮ ==========
-    print("\n3. РАСПРЕДЕЛЕНИЕ ТРУДОЕМКОСТИ ПО МЕСЯЦАМ (модель Рэлея)")
-    print("-" * 40)
+    # ========== 6. РАСПРЕДЕЛЕНИЕ ПО МЕСЯЦАМ ==========
+    print("\n5. РАСПРЕДЕЛЕНИЕ ТРУДОЕМКОСТИ ПО МЕСЯЦАМ (модель Рэлея)")
+    print("-" * 50)
 
     monthly_dist = calculate_monthly_distribution(pm, sigma, months)
     print(f"{'Месяц':<8} {'Доля':<10} {'Трудоемкость, чел.-мес':<25}")
     print("-" * 50)
 
     for i, month_pm in enumerate(monthly_dist, 1):
-        print(f"{i:<8} {month_pm / pm * 100:>6.1f}%     {month_pm:<8.2f}")
+        print(f"{i:<8} {month_pm/pm*100:>6.1f}%     {month_pm:<8.2f}")
 
-    # ========== РАСЧЕТ ЗАТРАТ ==========
-    print("\n4. РАСЧЕТ ЗАТРАТ НА ПЕРСОНАЛ")
-    print("-" * 40)
+    # ========== 7. РАСЧЁТ ЗАТРАТ ==========
+    print("\n6. РАСЧЕТ ЗАТРАТ НА ПЕРСОНАЛ")
+    print("-" * 50)
 
     cost_data = calculate_total_cost()
 
-    print(
-        f"Руководитель проекта:    {cost_data['personnel']['project_manager']:>12,.0f} руб."
-    )
-    print(
-        f"Системный архитектор:    {cost_data['personnel']['architect']:>12,.0f} руб."
-    )
-    print(
-        f"Инженер-программист:     {cost_data['personnel']['developer']:>12,.0f} руб."
-    )
+    print(f"Руководитель проекта:    {cost_data['personnel']['project_manager']:>12,.0f} руб.")
+    print(f"Системный архитектор:    {cost_data['personnel']['architect']:>12,.0f} руб.")
+    print(f"Инженер-программист:     {cost_data['personnel']['developer']:>12,.0f} руб.")
     print(f"Инженер тестирования:    {cost_data['personnel']['qa']:>12,.0f} руб.")
-    print(
-        f"Технический писатель:    {cost_data['personnel']['tech_writer']:>12,.0f} руб."
-    )
+    print(f"Технический писатель:    {cost_data['personnel']['tech_writer']:>12,.0f} руб.")
     print(f"{'ИТОГО персонал:':<25} {cost_data['personnel']['total']:>12,.0f} руб.")
 
-    print("\n5. РАСЧЕТ ОБЩЕЙ СТОИМОСТИ ПРОЕКТА")
-    print("-" * 40)
-    print(
-        f"Аппаратные средства и ПО:     {cost_data['hardware_software']:>12,.0f} руб. (с НДС)"
-    )
+    print("\n7. РАСЧЕТ ОБЩЕЙ СТОИМОСТИ ПРОЕКТА")
+    print("-" * 50)
+    print(f"Аппаратные средства и ПО:     {cost_data['hardware_software']:>12,.0f} руб. (с НДС)")
     print(f"Обучение:                     {cost_data['training']:>12,.0f} руб. (с НДС)")
-    print(
-        f"Расходы на персонал:          {cost_data['personnel']['total']:>12,.0f} руб."
-    )
+    print(f"Расходы на персонал:          {cost_data['personnel']['total']:>12,.0f} руб.")
     print(f"{'Итого без НДС:':<30} {cost_data['total_without_vat']:>12,.0f} руб.")
     print(f"{'НДС (22%):':<30} {cost_data['vat']:>12,.0f} руб.")
     print(f"{'ИТОГО с НДС:':<30} {cost_data['total_with_vat']:>12,.0f} руб.")
 
-    # ========== СРАВНЕНИЕ С АНАЛОГОМ ==========
-    print("\n6. СРАВНЕНИЕ С РЫНОЧНЫМ АНАЛОГОМ")
-    print("-" * 40)
+    # ========== 8. СРАВНЕНИЕ С АНАЛОГОМ ==========
+    print("\n8. СРАВНЕНИЕ С РЫНОЧНЫМ АНАЛОГОМ")
+    print("-" * 50)
 
-    analog_cost_year1 = 1_530_000  # лицензия + внедрение + обслуживание
-    analog_cost_year2 = 1_380_000  # продление лицензии + обслуживание
+    analog_cost_year1 = 1_530_000
+    analog_cost_year2 = 1_380_000
     analog_cost_year3 = 1_380_000
 
-    print(f"Коммерческий аналог (1-й год): {analog_cost_year1:>10,.0f} руб.")
-    print(f"Коммерческий аналог (2-й год): {analog_cost_year2:>10,.0f} руб.")
-    print(f"Коммерческий аналог (3-й год): {analog_cost_year3:>10,.0f} руб.")
-    print(f"УБИ.167 (разработка):          {cost_data['total_with_vat']:>10,.0f} руб.")
+    print(f"Коммерческий аналог (1-й год): {analog_cost_year1:>12,.0f} руб.")
+    print(f"Коммерческий аналог (2-й год): {analog_cost_year2:>12,.0f} руб.")
+    print(f"Коммерческий аналог (3-й год): {analog_cost_year3:>12,.0f} руб.")
+    print(f"УБИ.167 (разработка):          {cost_data['total_with_vat']:>12,.0f} руб.")
 
-    savings_year1 = analog_cost_year1 - cost_data["total_with_vat"]
-    savings_3years = (
-        analog_cost_year1 + analog_cost_year2 + analog_cost_year3
-    ) - cost_data["total_with_vat"]
+    savings_year1 = analog_cost_year1 - cost_data['total_with_vat']
+    savings_3years = (analog_cost_year1 + analog_cost_year2 + analog_cost_year3) - cost_data['total_with_vat']
 
-    print(f"\nЭкономия за 1-й год:  ~ {savings_year1:>10,.0f} руб.")
-    print(f"Экономия за 3 года:  ~ {savings_3years:>10,.0f} руб.")
+    print(f"\nЭкономия за 1-й год:  ~ {savings_year1:>12,.0f} руб.")
+    print(f"Экономия за 3 года:  ~ {savings_3years:>12,.0f} руб.")
 
-    # ========== ИНВЕСТИЦИОННЫЙ АНАЛИЗ ==========
-    print("\n7. СРАВНЕНИЕ РАЗЛИЧНЫХ ИНВЕСТИЦИЙ")
-    print("-" * 40)
+    # ========== 9. ИНВЕСТИЦИОННЫЙ АНАЛИЗ ==========
+    print("\n9. СРАВНЕНИЕ РАЗЛИЧНЫХ ИНВЕСТИЦИЙ")
+    print("-" * 50)
 
     investments = [
-        (
-            "Базовый вариант (разработка УБИ.167)",
-            cost_data["total_with_vat"],
-            "Полный контроль кода",
-        ),
-        (
-            "Покупка коммерческого аналога",
-            analog_cost_year1,
-            "Готовое решение, но ежегодные платежи",
-        ),
+        ("Базовый вариант (разработка УБИ.167)", cost_data['total_with_vat'], "Полный контроль кода"),
+        ("Покупка коммерческого аналога", analog_cost_year1, "Готовое решение, но ежегодные платежи"),
         ("Аутсорсинг разработки", 1_100_000, "Профессиональный продукт"),
         ("Open Source + доработка", 250_000, "Быстрый старт, экономия ~1 млн руб."),
-        (
-            "Найм Senior разработчика",
-            cost_data["total_with_vat"] * 0.9,
-            "Сокращение сроков на 30%",
-        ),
-        (
-            "Инвестиции в CI/CD",
-            cost_data["total_with_vat"] + 250_000,
-            "Снижение поддержки на 50%/год",
-        ),
-        (
-            "Найм Junior специалистов",
-            cost_data["total_with_vat"] * 1.15,
-            "Увеличение сроков на 50% (риски)",
-        ),
+        ("Найм Senior разработчика", cost_data['total_with_vat'] * 0.9, "Сокращение сроков на 30%"),
+        ("Инвестиции в CI/CD", cost_data['total_with_vat'] + 250_000, "Снижение поддержки на 50%/год"),
+        ("Найм Junior специалистов", cost_data['total_with_vat'] * 1.15, "Увеличение сроков на 50% (риски)"),
     ]
 
     print(f"{'Вариант инвестиций':<35} {'Затраты, руб.':<18} {'Результат'}")
-    print("-" * 75)
+    print("-" * 80)
     for name, cost, result in investments:
         print(f"{name:<35} {cost:>15,.0f}   {result}")
 
-    print("\n" + "=" * 60)
+    print("\n" + "=" * 70)
     print("РАСЧЕТ ЗАВЕРШЕН")
-    print("=" * 60)
+    print("=" * 70)
 
 
 if __name__ == "__main__":
